@@ -45,8 +45,10 @@ class IngestionAPIClient:
             logger.warning("Attempted to send an empty list of metrics.")
             return
 
-        # Pydantic models must be converted to JSON-serializable dicts
-        payload = [metric.model_dump(mode="json") for metric in metrics]
+        # Wrap metrics in the expected request format
+        payload = {
+            "metrics": [metric.model_dump(mode="json") for metric in metrics]
+        }
 
         try:
             logger.info(

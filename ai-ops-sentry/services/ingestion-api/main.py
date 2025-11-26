@@ -36,13 +36,27 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="AI Ops Sentry - Ingestion API",
         version="0.1.0",
-        description="Receives and processes metrics and logs.",
+        description="Receives and processes metrics and logs for the AI Ops Sentry platform.",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_tags=[
+            {
+                "name": "Ingestion",
+                "description": "Endpoints for ingesting metrics and logs",
+            },
+            {
+                "name": "Monitoring",
+                "description": "Health check and monitoring endpoints",
+            },
+        ],
     )
+    
+    # Include API routes under /api/v1 prefix
     app.include_router(api_router, prefix="/api/v1")
 
-    @app.get("/health", tags=["Monitoring"])
+    @app.get("/health", tags=["Monitoring"], summary="Legacy Health Check")
     def health_check():
-        """Health check endpoint."""
+        """Legacy health check endpoint for backward compatibility."""
         return {"status": "ok"}
 
     return app
