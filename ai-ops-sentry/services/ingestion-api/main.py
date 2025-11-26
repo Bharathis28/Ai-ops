@@ -70,11 +70,12 @@ def main() -> None:
     try:
         config = load_service_config()
         logger.info(f"Starting Ingestion API on port {config.port}")
+        # Pass the app object directly instead of string reference
+        # to avoid module loading issues with hyphenated directory names
         uvicorn.run(
-            "services.ingestion-api.main:app",
+            app,
             host="0.0.0.0",
             port=config.port,
-            reload=config.environment == "development",
             log_level=config.log_level.lower(),
         )
     except Exception as e:
