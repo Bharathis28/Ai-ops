@@ -19,6 +19,7 @@ python-dotenv>=1.0.0
 pyyaml>=6.0
 requests>=2.31.0
 loguru>=0.7.0
+tenacity>=8.2.3
 
 # Development
 pytest>=7.4.0

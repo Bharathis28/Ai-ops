@@ -115,6 +115,14 @@ class TestServiceConfig:
             assert config.environment == "production"
             assert config.log_level == "DEBUG"
             assert config.port == 9000
+            assert config.ingestion_api_url == "http://localhost:8000" # default
+
+    def test_service_config_custom_ingestion_url(self) -> None:
+        """Test ServiceConfig with a custom ingestion API URL."""
+        with patch.dict(os.environ, {"INGESTION_API_URL": "http://custom-api:8888"}):
+            config = ServiceConfig()
+            assert config.ingestion_api_url == "http://custom-api:8888"
+
 
     def test_service_config_invalid_log_level(self) -> None:
         """Test that invalid log level raises error."""

@@ -184,6 +184,13 @@ class ServiceConfig(BaseSettings):
         validation_alias="PORT",
     )
 
+    ingestion_api_url: str = Field(
+        default="http://localhost:8000",
+        description="URL of the ingestion API",
+        validation_alias="INGESTION_API_URL",
+    )
+
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
