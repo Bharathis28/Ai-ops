@@ -10,8 +10,22 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from libs.core.config import load_service_config
-from services.metrics-collector.domain.metrics import generate_fake_metrics
-from services.metrics-collector.infra.client import IngestionAPIClient
+
+# Import modules from hyphenated directory
+import importlib.util
+from pathlib import Path as PathLib
+
+metrics_path = PathLib(__file__).parent / "domain" / "metrics.py"
+metrics_spec = importlib.util.spec_from_file_location("metrics", metrics_path)
+metrics_module = importlib.util.module_from_spec(metrics_spec)
+metrics_spec.loader.exec_module(metrics_module)
+generate_fake_metrics = metrics_module.generate_fake_metrics
+
+client_path = PathLib(__file__).parent / "infra" / "client.py"
+client_spec = importlib.util.spec_from_file_location("client", client_path)
+client_module = importlib.util.module_from_spec(client_spec)
+client_spec.loader.exec_module(client_module)
+IngestionAPIClient = client_module.IngestionAPIClient
 
 # Configure logging
 logging.basicConfig(
