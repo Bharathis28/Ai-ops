@@ -7,9 +7,10 @@ from typing import List
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from services.metrics-collector.domain.metrics import MetricPoint
+from libs.models.metrics import MetricPoint
 
 logger = logging.getLogger(__name__)
+
 
 
 class IngestionAPIClient:

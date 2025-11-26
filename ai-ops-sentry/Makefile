@@ -43,7 +43,7 @@ run-metrics-collector:
 	python services/metrics-collector/main.py
 
 run-ingestion-api:
-	python services/ingestion-api/main.py
+	uvicorn services.ingestion-api.main:app --host 0.0.0.0 --port 8000 --reload
 
 run-offline-trainer:
 	python services/anomaly-engine/offline-trainer/main.py

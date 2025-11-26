@@ -5,7 +5,7 @@ import requests
 from unittest.mock import patch, MagicMock
 
 from services.metrics-collector.infra.client import IngestionAPIClient
-from services.metrics-collector.domain.metrics import MetricPoint
+from libs.models.metrics import MetricPoint
 
 
 @pytest.fixture

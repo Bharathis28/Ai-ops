@@ -1,33 +1,9 @@
 """Domain models and logic for metrics."""
 
-import datetime
 import random
-from typing import Dict, List, Literal
+from typing import List
 
-from pydantic import BaseModel, Field
-
-MetricName = Literal[
-    "cpu_usage",
-    "memory_usage",
-    "latency_p95",
-    "request_rate",
-    "error_rate",
-]
-
-SERVICE_NAMES = ["frontend-api", "backend-worker", "data-pipeline", "auth-service"]
-
-
-class MetricPoint(BaseModel):
-    """A single data point for a metric at a specific time."""
-
-    timestamp: datetime.datetime = Field(
-        default_factory=datetime.datetime.now,
-        description="The timestamp when the metric was recorded (UTC).",
-    )
-    service_name: str = Field(..., description="The name of the service being monitored.")
-    metric_name: MetricName = Field(..., description="The name of the metric.")
-    value: float = Field(..., description="The value of the metric.")
-    tags: Dict[str, str] = Field(default_factory=dict, description="Optional key-value tags.")
+from libs.models.metrics import MetricPoint, SERVICE_NAMES, MetricName
 
 
 def generate_fake_metrics(

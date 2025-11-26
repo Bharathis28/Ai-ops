@@ -113,8 +113,8 @@ show_error_codes = true
 minversion = "7.0"
 addopts = "-ra -q --cov=services --cov=libs --cov-report=term-missing --cov-report=html"
 testpaths = [
-    "services/*/tests",
-    "libs/*/tests",
+    "services",
+    "libs",
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

@@ -1,7 +1,7 @@
 """Unit tests for the metrics domain module."""
 
+from libs.models.metrics import MetricPoint
 from services.metrics-collector.domain.metrics import (
-    MetricPoint,
     generate_fake_metrics,
     SERVICE_NAMES,
 )
