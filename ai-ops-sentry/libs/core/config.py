@@ -103,6 +103,19 @@ class GCPConfig(BaseSettings):
         validation_alias="PUBSUB_TOPIC_ANOMALY_EVENTS",
     )
     
+    # Pub/Sub Subscription Names
+    pubsub_subscription_metric_batches: str = Field(
+        default="metric_batches_sub",
+        description="Pub/Sub subscription for metric batches",
+        validation_alias="PUBSUB_SUBSCRIPTION_METRIC_BATCHES",
+    )
+    
+    pubsub_subscription_log_entries: str = Field(
+        default="log_entries_sub",
+        description="Pub/Sub subscription for log entries",
+        validation_alias="PUBSUB_SUBSCRIPTION_LOG_ENTRIES",
+    )
+    
     # Cloud Storage Settings
     gcs_bucket_models: Optional[str] = Field(
         default=None,
@@ -145,6 +158,17 @@ class GCPConfig(BaseSettings):
             Fully qualified topic path in format: projects/{project}/topics/{topic}
         """
         return f"projects/{self.gcp_project_id}/topics/{topic_name}"
+
+    def get_full_subscription_path(self, subscription_name: str) -> str:
+        """Get fully qualified Pub/Sub subscription path.
+        
+        Args:
+            subscription_name: Short subscription name (e.g., 'metric_batches_sub')
+            
+        Returns:
+            Fully qualified subscription path in format: projects/{project}/subscriptions/{subscription}
+        """
+        return f"projects/{self.gcp_project_id}/subscriptions/{subscription_name}"
 
 
 class ServiceConfig(BaseSettings):

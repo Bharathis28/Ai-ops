@@ -37,11 +37,8 @@ bq_reader_module = importlib.util.module_from_spec(bq_reader_spec)
 bq_reader_spec.loader.exec_module(bq_reader_module)
 load_historical_metrics = bq_reader_module.load_historical_metrics
 
-model_store_path = Path(__file__).parent / "infra" / "model_store.py"
-model_store_spec = importlib.util.spec_from_file_location("model_store", model_store_path)
-model_store_module = importlib.util.module_from_spec(model_store_spec)
-model_store_spec.loader.exec_module(model_store_module)
-ModelStore = model_store_module.ModelStore
+# Import ModelStore from shared libs
+from libs.models.model_store import ModelStore
 
 # Configure logging
 logging.basicConfig(
