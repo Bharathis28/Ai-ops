@@ -1,8 +1,9 @@
 """API routes for Ingestion API service."""
 
 import logging
+import random
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import importlib.util
 from pathlib import Path
 
@@ -186,6 +187,51 @@ def receive_logs(request: LogIngestRequest) -> LogIngestResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         )
+
+
+@router.get(
+    "/metrics",
+    response_model=List[MetricPoint],
+    tags=["Ingestion"],
+    summary="Query Metrics",
+    description="Retrieves metrics for a given service and time range.",
+)
+def query_metrics(
+    service_name: Optional[str] = None,
+    hours: int = 24,
+) -> List[MetricPoint]:
+    """
+    Query metrics from storage (stub implementation returns mock data).
+
+    Args:
+        service_name: Optional service name filter
+        hours: Number of hours to look back (default 24)
+
+    Returns:
+        List of MetricPoint objects
+    """
+    # Generate mock data for development
+    logger.info(f"Querying metrics for service={service_name}, hours={hours}")
+    
+    services = [service_name] if service_name else ["payment-api", "user-auth", "order-service", "notification-service"]
+    metrics = []
+    
+    now = datetime.now(timezone.utc)
+    for i in range(hours):
+        for service in services:
+            timestamp = now - timedelta(hours=i)
+            metrics.append(MetricPoint(
+                timestamp=timestamp,
+                service_name=service,
+                cpu_usage=random.uniform(20, 90),
+                memory_usage=random.uniform(30, 85),
+                latency_p95=random.uniform(50, 500),
+                request_rate=random.uniform(100, 1000),
+                error_rate=random.uniform(0, 5),
+            ))
+    
+    logger.info(f"Returning {len(metrics)} metric points")
+    return metrics
 
 
 @router.get(
