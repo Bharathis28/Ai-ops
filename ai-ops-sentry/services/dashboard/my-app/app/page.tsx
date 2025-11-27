@@ -1,5 +1,5 @@
-import Dashboard from "../dashboard"
+import IntegratedDashboard from "@/components/integrated-dashboard"
 
 export default function Page() {
-  return <Dashboard />
+  return <IntegratedDashboard />
 }
