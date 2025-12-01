@@ -82,11 +82,26 @@ def initialize_clients(config: GCPConfig) -> None:
     """
     global _k8s_client, _cloud_run_client, _actions_logger
     
-    _k8s_client = KubernetesClient(project_id=config.gcp_project_id)
-    _cloud_run_client = CloudRunClient(project_id=config.gcp_project_id)
+    # Initialize K8s client (optional - will log error if no cluster available)
+    try:
+        _k8s_client = KubernetesClient(project_id=config.gcp_project_id)
+        logger.info("Initialized Kubernetes client")
+    except Exception as e:
+        logger.warning(f"Kubernetes client initialization failed (optional): {e}")
+        _k8s_client = None
+    
+    # Initialize Cloud Run client
+    try:
+        _cloud_run_client = CloudRunClient(project_id=config.gcp_project_id)
+        logger.info("Initialized Cloud Run client")
+    except Exception as e:
+        logger.warning(f"Cloud Run client initialization failed: {e}")
+        _cloud_run_client = None
+    
+    # Initialize actions logger
     _actions_logger = ActionsLogger(config=config, backend="console")
     
-    logger.info("Initialized action engine clients")
+    logger.info("Action engine clients initialized")
 
 
 # Dependency injection functions

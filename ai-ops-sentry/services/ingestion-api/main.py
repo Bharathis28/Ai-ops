@@ -6,6 +6,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Add project root to path for imports
 project_root = Path(__file__).resolve().parent.parent.parent
@@ -49,6 +50,15 @@ def create_app() -> FastAPI:
                 "description": "Health check and monitoring endpoints",
             },
         ],
+    )
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins for development
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     
     # Include API routes under /api/v1 prefix
