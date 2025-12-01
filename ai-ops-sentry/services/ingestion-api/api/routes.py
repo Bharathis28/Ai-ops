@@ -26,9 +26,11 @@ HealthCheckResponse = models_module.HealthCheckResponse
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Lazy-loaded BigQuery writers to avoid blocking at import time
+# Lazy-loaded BigQuery writers and Pub/Sub publishers
 _metrics_writer = None
 _logs_writer = None
+_metrics_publisher = None
+_logs_publisher = None
 _gcp_config: Optional[GCPConfig] = None
 
 
@@ -74,6 +76,50 @@ def get_logs_writer():
     return _logs_writer
 
 
+def get_metrics_publisher():
+    """Lazy initialization of Pub/Sub metrics publisher."""
+    global _metrics_publisher, _gcp_config
+    if _metrics_publisher is None:
+        if _gcp_config is None:
+            _gcp_config = load_gcp_config()
+        
+        if not _gcp_config.enable_gcp_clients:
+            return None
+            
+        # Import dynamically
+        from pathlib import Path
+        pubsub_path = Path(__file__).parent.parent / "infra" / "pubsub_publisher.py"
+        pubsub_spec = importlib.util.spec_from_file_location("pubsub_publisher", pubsub_path)
+        pubsub_module = importlib.util.module_from_spec(pubsub_spec)
+        pubsub_spec.loader.exec_module(pubsub_module)
+        PubSubMetricsPublisher = pubsub_module.PubSubMetricsPublisher
+        
+        _metrics_publisher = PubSubMetricsPublisher(config=_gcp_config)
+    return _metrics_publisher
+
+
+def get_logs_publisher():
+    """Lazy initialization of Pub/Sub logs publisher."""
+    global _logs_publisher, _gcp_config
+    if _logs_publisher is None:
+        if _gcp_config is None:
+            _gcp_config = load_gcp_config()
+        
+        if not _gcp_config.enable_gcp_clients:
+            return None
+            
+        # Import dynamically
+        from pathlib import Path
+        pubsub_path = Path(__file__).parent.parent / "infra" / "pubsub_publisher.py"
+        pubsub_spec = importlib.util.spec_from_file_location("pubsub_publisher", pubsub_path)
+        pubsub_module = importlib.util.module_from_spec(pubsub_spec)
+        pubsub_spec.loader.exec_module(pubsub_module)
+        PubSubLogsPublisher = pubsub_module.PubSubLogsPublisher
+        
+        _logs_publisher = PubSubLogsPublisher(config=_gcp_config)
+    return _logs_publisher
+
+
 @router.post(
     "/metrics",
     response_model=MetricIngestResponse,
@@ -114,8 +160,21 @@ def receive_metrics(request: MetricIngestRequest) -> MetricIngestResponse:
         else:
             logger.warning("BigQuery writer not initialized, skipping write")
 
-        # TODO: Publish to Pub/Sub topic `metric_batches` for downstream processing
-        # pubsub_publisher.publish(topic="metric_batches", data=metrics)
+        # Publish to Pub/Sub for downstream processing
+        try:
+            metrics_publisher = get_metrics_publisher()
+            if metrics_publisher:
+                try:
+                    metrics_publisher.publish_metrics(metrics)
+                    logger.info(f"Published {len(metrics)} metrics to Pub/Sub")
+                except Exception as e:
+                    logger.error(f"Failed to publish metrics to Pub/Sub: {e}")
+                    # Don't fail the request if Pub/Sub fails
+            else:
+                logger.warning("Pub/Sub publisher not initialized, skipping publish")
+        except Exception as e:
+            logger.error(f"Failed to initialize Pub/Sub publisher: {e}")
+            # Don't fail the request if Pub/Sub initialization fails
 
         return MetricIngestResponse(
             message=f"Successfully ingested {len(metrics)} metrics",
@@ -176,8 +235,21 @@ def receive_logs(request: LogIngestRequest) -> LogIngestResponse:
         else:
             logger.warning("BigQuery logs writer not initialized, skipping write")
 
-        # TODO: Publish to Pub/Sub topic `log_entries` for downstream processing
-        # pubsub_publisher.publish(topic="log_entries", data=logs)
+        # Publish to Pub/Sub for downstream processing
+        try:
+            logs_publisher = get_logs_publisher()
+            if logs_publisher:
+                try:
+                    logs_publisher.publish_logs(logs)
+                    logger.info(f"Published {len(logs)} logs to Pub/Sub")
+                except Exception as e:
+                    logger.error(f"Failed to publish logs to Pub/Sub: {e}")
+                    # Don't fail the request if Pub/Sub fails
+            else:
+                logger.warning("Pub/Sub publisher not initialized, skipping publish")
+        except Exception as e:
+            logger.error(f"Failed to initialize Pub/Sub publisher: {e}")
+            # Don't fail the request if Pub/Sub initialization fails
 
         return LogIngestResponse(
             message=f"Successfully ingested {len(logs)} log entries",

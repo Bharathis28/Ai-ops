@@ -6,10 +6,23 @@ Currently implemented as stubs with TODO comments for actual BigQuery integratio
 
 import logging
 from typing import List
+import sys
+from pathlib import Path
+
+# Add parent directories to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from libs.core.config import GCPConfig
 from libs.models.metrics import MetricPoint
-from services.ingestion-api.domain.models import LogEntry
+
+# Import LogEntry using importlib to handle hyphenated directory names
+import importlib.util
+models_path = Path(__file__).parent.parent / "domain" / "models.py"
+spec = importlib.util.spec_from_file_location("models", models_path)
+models_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(models_module)
+LogEntry = models_module.LogEntry
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +71,8 @@ class BigQueryMetricsWriter:
                 "service_name": metric.service_name,
                 "metric_name": metric.metric_name,
                 "value": metric.value,
-                "tags": json.dumps(metric.tags) if metric.tags else "{}",
+                "labels": json.dumps(metric.tags) if metric.tags else "{}",
+                "source": "ingestion-api",
             }
             for metric in metrics
         ]
@@ -128,6 +142,7 @@ class BigQueryLogsWriter:
                 "service_name": log.service_name,
                 "level": log.level,
                 "message": log.message,
+                "source": "ingestion-api",
                 "metadata": json.dumps(log.metadata) if log.metadata else "{}",
             }
             for log in logs
