@@ -30,9 +30,14 @@ class CloudRunClient:
         self.project_id = project_id
         logger.info(f"Initialized CloudRunClient for project: {project_id}")
         
-        # TODO: Initialize actual Cloud Run client when ready
-        # from google.cloud import run_v2
-        # self.client = run_v2.ServicesClient()
+        # Initialize Cloud Run client
+        try:
+            from google.cloud import run_v2
+            self.client = run_v2.ServicesClient()
+            logger.info("Cloud Run API client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Cloud Run client: {e}")
+            raise
 
     def restart_service(
         self,
@@ -51,34 +56,36 @@ class CloudRunClient:
         Raises:
             Exception: If restart fails.
         """
-        logger.info(
-            f"[STUB] Would restart Cloud Run service '{service_name}' "
-            f"in region '{region}'"
-        )
-        
-        # TODO: Implement actual service restart
-        # Example implementation:
-        #
-        # from google.cloud import run_v2
-        # from datetime import datetime
-        # 
-        # # Get the service
-        # service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
-        # service = self.client.get_service(name=service_path)
-        # 
-        # # Update service with restart annotation
-        # now = datetime.utcnow().isoformat()
-        # if not service.template.annotations:
-        #     service.template.annotations = {}
-        # service.template.annotations["run.googleapis.com/restartedAt"] = now
-        # 
-        # # Update the service
-        # operation = self.client.update_service(service=service)
-        # operation.result()  # Wait for completion
-        # 
-        # logger.info(f"Restarted Cloud Run service {service_name}")
-        
-        logger.info(f"[STUB] Cloud Run service {service_name} restarted")
+        try:
+            from google.cloud import run_v2
+            from datetime import datetime
+            
+            logger.info(f"Restarting Cloud Run service '{service_name}' in region '{region}'")
+            
+            # Get the service
+            service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
+            service = self.client.get_service(name=service_path)
+            
+            # Update service with restart annotation
+            now = datetime.utcnow().isoformat()
+            if not service.template.annotations:
+                service.template.annotations = {}
+            service.template.annotations["run.googleapis.com/restartedAt"] = now
+            
+            # Create update request
+            request = run_v2.UpdateServiceRequest(
+                service=service,
+            )
+            
+            # Update the service
+            operation = self.client.update_service(request=request)
+            operation.result()  # Wait for completion
+            
+            logger.info(f"Successfully restarted Cloud Run service {service_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to restart Cloud Run service {service_name}: {e}")
+            raise
 
     def scale_service(
         self,
@@ -100,39 +107,41 @@ class CloudRunClient:
         Raises:
             Exception: If scaling fails.
         """
-        logger.info(
-            f"[STUB] Would scale Cloud Run service '{service_name}' "
-            f"in region '{region}' (min: {min_instances}, max: {max_instances})"
-        )
-        
-        # TODO: Implement actual service scaling
-        # Example implementation:
-        #
-        # from google.cloud import run_v2
-        # 
-        # # Get the service
-        # service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
-        # service = self.client.get_service(name=service_path)
-        # 
-        # # Update scaling configuration
-        # if min_instances is not None:
-        #     service.template.scaling.min_instance_count = min_instances
-        # if max_instances is not None:
-        #     service.template.scaling.max_instance_count = max_instances
-        # 
-        # # Update the service
-        # operation = self.client.update_service(service=service)
-        # operation.result()  # Wait for completion
-        # 
-        # logger.info(
-        #     f"Scaled Cloud Run service {service_name} "
-        #     f"(min: {min_instances}, max: {max_instances})"
-        # )
-        
-        logger.info(
-            f"[STUB] Cloud Run service {service_name} scaled "
-            f"(min: {min_instances}, max: {max_instances})"
-        )
+        try:
+            from google.cloud import run_v2
+            
+            logger.info(
+                f"Scaling Cloud Run service '{service_name}' in region '{region}' "
+                f"(min: {min_instances}, max: {max_instances})"
+            )
+            
+            # Get the service
+            service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
+            service = self.client.get_service(name=service_path)
+            
+            # Update scaling configuration
+            if min_instances is not None:
+                service.template.scaling.min_instance_count = min_instances
+            if max_instances is not None:
+                service.template.scaling.max_instance_count = max_instances
+            
+            # Create update request
+            request = run_v2.UpdateServiceRequest(
+                service=service,
+            )
+            
+            # Update the service
+            operation = self.client.update_service(request=request)
+            operation.result()  # Wait for completion
+            
+            logger.info(
+                f"Successfully scaled Cloud Run service {service_name} "
+                f"(min: {min_instances}, max: {max_instances})"
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to scale Cloud Run service {service_name}: {e}")
+            raise
 
     def get_service_info(
         self,
@@ -151,41 +160,35 @@ class CloudRunClient:
         Raises:
             Exception: If service not found or retrieval fails.
         """
-        logger.info(
-            f"[STUB] Would get info for Cloud Run service '{service_name}' "
-            f"in region '{region}'"
-        )
-        
-        # TODO: Implement actual service info retrieval
-        # Example implementation:
-        #
-        # from google.cloud import run_v2
-        # 
-        # service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
-        # service = self.client.get_service(name=service_path)
-        # 
-        # return {
-        #     "name": service.name,
-        #     "uri": service.uri,
-        #     "latest_revision": service.latest_ready_revision,
-        #     "min_instances": service.template.scaling.min_instance_count,
-        #     "max_instances": service.template.scaling.max_instance_count,
-        #     "traffic": [
-        #         {
-        #             "revision": t.revision,
-        #             "percent": t.percent
-        #         }
-        #         for t in service.traffic
-        #     ],
-        # }
-        
-        return {
-            "name": service_name,
-            "region": region,
-            "min_instances": 0,
-            "max_instances": 100,
-            "stub": True,
-        }
+        try:
+            from google.cloud import run_v2
+            
+            logger.info(f"Getting info for Cloud Run service '{service_name}' in region '{region}'")
+            
+            service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
+            service = self.client.get_service(name=service_path)
+            
+            info = {
+                "name": service.name,
+                "uri": service.uri,
+                "latest_revision": service.latest_ready_revision,
+                "min_instances": service.template.scaling.min_instance_count,
+                "max_instances": service.template.scaling.max_instance_count,
+                "traffic": [
+                    {
+                        "revision": t.revision,
+                        "percent": t.percent
+                    }
+                    for t in service.traffic
+                ],
+            }
+            
+            logger.info(f"Retrieved info for Cloud Run service {service_name}")
+            return info
+            
+        except Exception as e:
+            logger.error(f"Failed to get info for Cloud Run service {service_name}: {e}")
+            raise
 
     def deploy_service(
         self,
@@ -205,12 +208,59 @@ class CloudRunClient:
         Raises:
             Exception: If deployment fails.
         """
-        logger.info(
-            f"[STUB] Would deploy Cloud Run service '{service_name}' "
-            f"in region '{region}' with image '{image}'"
-        )
-        
-        # TODO: Implement actual service deployment
-        # This is a placeholder for future enhancements
-        
-        logger.info(f"[STUB] Cloud Run service {service_name} deployed")
+        try:
+            from google.cloud import run_v2
+            
+            logger.info(
+                f"Deploying Cloud Run service '{service_name}' in region '{region}' "
+                f"with image '{image}'"
+            )
+            
+            # Build service configuration
+            service_path = f"projects/{self.project_id}/locations/{region}/services/{service_name}"
+            
+            # Create container spec
+            container = run_v2.Container()
+            container.image = image
+            
+            # Add environment variables if provided
+            if env_vars:
+                container.env = [
+                    run_v2.EnvVar(name=k, value=v)
+                    for k, v in env_vars.items()
+                ]
+            
+            # Create template
+            template = run_v2.RevisionTemplate()
+            template.containers = [container]
+            
+            # Create or update service
+            service = run_v2.Service()
+            service.template = template
+            
+            try:
+                # Try to get existing service
+                existing_service = self.client.get_service(name=service_path)
+                # Update existing service
+                service.name = service_path
+                request = run_v2.UpdateServiceRequest(service=service)
+                operation = self.client.update_service(request=request)
+                logger.info(f"Updating existing Cloud Run service {service_name}")
+            except:
+                # Create new service
+                parent = f"projects/{self.project_id}/locations/{region}"
+                service.name = service_name
+                request = run_v2.CreateServiceRequest(
+                    parent=parent,
+                    service=service,
+                    service_id=service_name,
+                )
+                operation = self.client.create_service(request=request)
+                logger.info(f"Creating new Cloud Run service {service_name}")
+            
+            operation.result()  # Wait for completion
+            logger.info(f"Successfully deployed Cloud Run service {service_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to deploy Cloud Run service {service_name}: {e}")
+            raise

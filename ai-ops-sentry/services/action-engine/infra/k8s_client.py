@@ -30,11 +30,25 @@ class KubernetesClient:
         self.project_id = project_id
         logger.info(f"Initialized KubernetesClient for project: {project_id}")
         
-        # TODO: Initialize actual Kubernetes client when ready
-        # from kubernetes import client, config
-        # config.load_kube_config()  # or load_incluster_config() for in-cluster
-        # self.apps_v1 = client.AppsV1Api()
-        # self.core_v1 = client.CoreV1Api()
+        # Initialize Kubernetes client
+        try:
+            from kubernetes import client, config
+            
+            # Try in-cluster config first, fallback to kubeconfig
+            try:
+                config.load_incluster_config()
+                logger.info("Loaded in-cluster Kubernetes config")
+            except:
+                config.load_kube_config()
+                logger.info("Loaded Kubernetes config from kubeconfig")
+            
+            self.apps_v1 = client.AppsV1Api()
+            self.core_v1 = client.CoreV1Api()
+            logger.info("Kubernetes API clients initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Kubernetes client: {e}")
+            raise
 
     def delete_deployment_pods(
         self,
@@ -55,34 +69,34 @@ class KubernetesClient:
         Raises:
             Exception: If pod deletion fails.
         """
-        logger.info(
-            f"[STUB] Would delete pods for deployment '{deployment_name}' "
-            f"in namespace '{namespace}' on cluster '{cluster_name}'"
-        )
-        
-        # TODO: Implement actual pod deletion
-        # Example implementation:
-        #
-        # # Get deployment to find label selector
-        # deployment = self.apps_v1.read_namespaced_deployment(
-        #     name=deployment_name,
-        #     namespace=namespace
-        # )
-        # 
-        # # Get label selector
-        # label_selector = ",".join([
-        #     f"{k}={v}" for k, v in deployment.spec.selector.match_labels.items()
-        # ])
-        # 
-        # # Delete all pods with matching labels
-        # self.core_v1.delete_collection_namespaced_pod(
-        #     namespace=namespace,
-        #     label_selector=label_selector,
-        # )
-        # 
-        # logger.info(f"Deleted pods for deployment {deployment_name}")
-        
-        logger.info(f"[STUB] Pods deleted for deployment {deployment_name}")
+        try:
+            logger.info(
+                f"Deleting pods for deployment '{deployment_name}' "
+                f"in namespace '{namespace}' on cluster '{cluster_name}'"
+            )
+            
+            # Get deployment to find label selector
+            deployment = self.apps_v1.read_namespaced_deployment(
+                name=deployment_name,
+                namespace=namespace
+            )
+            
+            # Get label selector
+            label_selector = ",".join([
+                f"{k}={v}" for k, v in deployment.spec.selector.match_labels.items()
+            ])
+            
+            # Delete all pods with matching labels
+            self.core_v1.delete_collection_namespaced_pod(
+                namespace=namespace,
+                label_selector=label_selector,
+            )
+            
+            logger.info(f"Successfully deleted pods for deployment {deployment_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to delete pods for deployment {deployment_name}: {e}")
+            raise
 
     def scale_deployment(
         self,
@@ -102,29 +116,24 @@ class KubernetesClient:
         Raises:
             Exception: If scaling fails.
         """
-        logger.info(
-            f"[STUB] Would scale deployment '{deployment_name}' "
-            f"in namespace '{namespace}' on cluster '{cluster_name}' "
-            f"to {replicas} replicas"
-        )
-        
-        # TODO: Implement actual deployment scaling
-        # Example implementation:
-        #
-        # # Patch the deployment's replicas
-        # self.apps_v1.patch_namespaced_deployment_scale(
-        #     name=deployment_name,
-        #     namespace=namespace,
-        #     body={"spec": {"replicas": replicas}}
-        # )
-        # 
-        # logger.info(
-        #     f"Scaled deployment {deployment_name} to {replicas} replicas"
-        # )
-        
-        logger.info(
-            f"[STUB] Deployment {deployment_name} scaled to {replicas} replicas"
-        )
+        try:
+            logger.info(
+                f"Scaling deployment '{deployment_name}' in namespace '{namespace}' "
+                f"on cluster '{cluster_name}' to {replicas} replicas"
+            )
+            
+            # Patch the deployment's replicas
+            self.apps_v1.patch_namespaced_deployment_scale(
+                name=deployment_name,
+                namespace=namespace,
+                body={"spec": {"replicas": replicas}}
+            )
+            
+            logger.info(f"Successfully scaled deployment {deployment_name} to {replicas} replicas")
+            
+        except Exception as e:
+            logger.error(f"Failed to scale deployment {deployment_name}: {e}")
+            raise
 
     def rollout_restart_deployment(
         self,
@@ -145,41 +154,39 @@ class KubernetesClient:
         Raises:
             Exception: If rollout restart fails.
         """
-        logger.info(
-            f"[STUB] Would rollout restart deployment '{deployment_name}' "
-            f"in namespace '{namespace}' on cluster '{cluster_name}'"
-        )
-        
-        # TODO: Implement actual rollout restart
-        # Example implementation:
-        #
-        # from datetime import datetime
-        # 
-        # # Patch deployment to add/update restart annotation
-        # # This triggers a rolling update
-        # now = datetime.utcnow().isoformat()
-        # 
-        # self.apps_v1.patch_namespaced_deployment(
-        #     name=deployment_name,
-        #     namespace=namespace,
-        #     body={
-        #         "spec": {
-        #             "template": {
-        #                 "metadata": {
-        #                     "annotations": {
-        #                         "kubectl.kubernetes.io/restartedAt": now
-        #                     }
-        #                 }
-        #             }
-        #         }
-        #     }
-        # )
-        # 
-        # logger.info(f"Rollout restart initiated for deployment {deployment_name}")
-        
-        logger.info(
-            f"[STUB] Rollout restart completed for deployment {deployment_name}"
-        )
+        try:
+            from datetime import datetime
+            
+            logger.info(
+                f"Performing rollout restart of deployment '{deployment_name}' "
+                f"in namespace '{namespace}' on cluster '{cluster_name}'"
+            )
+            
+            # Patch deployment to add/update restart annotation
+            # This triggers a rolling update
+            now = datetime.utcnow().isoformat()
+            
+            self.apps_v1.patch_namespaced_deployment(
+                name=deployment_name,
+                namespace=namespace,
+                body={
+                    "spec": {
+                        "template": {
+                            "metadata": {
+                                "annotations": {
+                                    "kubectl.kubernetes.io/restartedAt": now
+                                }
+                            }
+                        }
+                    }
+                }
+            )
+            
+            logger.info(f"Successfully initiated rollout restart for deployment {deployment_name}")
+            
+        except Exception as e:
+            logger.error(f"Failed to rollout restart deployment {deployment_name}: {e}")
+            raise
 
     def get_deployment_info(
         self,
@@ -200,34 +207,38 @@ class KubernetesClient:
         Raises:
             Exception: If deployment not found or retrieval fails.
         """
-        logger.info(
-            f"[STUB] Would get info for deployment '{deployment_name}' "
-            f"in namespace '{namespace}' on cluster '{cluster_name}'"
-        )
-        
-        # TODO: Implement actual deployment info retrieval
-        # Example implementation:
-        #
-        # deployment = self.apps_v1.read_namespaced_deployment(
-        #     name=deployment_name,
-        #     namespace=namespace
-        # )
-        # 
-        # return {
-        #     "name": deployment.metadata.name,
-        #     "namespace": deployment.metadata.namespace,
-        #     "replicas": deployment.spec.replicas,
-        #     "available_replicas": deployment.status.available_replicas,
-        #     "ready_replicas": deployment.status.ready_replicas,
-        #     "updated_replicas": deployment.status.updated_replicas,
-        # }
-        
-        return {
-            "name": deployment_name,
-            "namespace": namespace,
-            "cluster": cluster_name,
-            "replicas": 3,
-            "available_replicas": 3,
-            "ready_replicas": 3,
-            "stub": True,
-        }
+        try:
+            logger.info(
+                f"Getting info for deployment '{deployment_name}' "
+                f"in namespace '{namespace}' on cluster '{cluster_name}'"
+            )
+            
+            deployment = self.apps_v1.read_namespaced_deployment(
+                name=deployment_name,
+                namespace=namespace
+            )
+            
+            info = {
+                "name": deployment.metadata.name,
+                "namespace": deployment.metadata.namespace,
+                "cluster": cluster_name,
+                "replicas": deployment.spec.replicas,
+                "available_replicas": deployment.status.available_replicas or 0,
+                "ready_replicas": deployment.status.ready_replicas or 0,
+                "updated_replicas": deployment.status.updated_replicas or 0,
+                "conditions": [
+                    {
+                        "type": c.type,
+                        "status": c.status,
+                        "reason": c.reason,
+                    }
+                    for c in (deployment.status.conditions or [])
+                ],
+            }
+            
+            logger.info(f"Retrieved info for deployment {deployment_name}")
+            return info
+            
+        except Exception as e:
+            logger.error(f"Failed to get info for deployment {deployment_name}: {e}")
+            raise
