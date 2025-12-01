@@ -292,7 +292,22 @@ class ModelStore:
             return metadata
 
         elif self.backend == "gcs":
-            raise NotImplementedError("GCS backend not yet implemented")
+            import io
+            
+            blob_path = f"{self.gcs_prefix}/{service_name}/metadata.pkl"
+            blob = self.gcs_bucket.blob(blob_path)
+            
+            if not blob.exists():
+                logger.warning(f"Metadata not found for service: {service_name} at gs://{self.bucket_name}/{blob_path}")
+                return None
+            
+            metadata_bytes = io.BytesIO()
+            blob.download_to_file(metadata_bytes)
+            metadata_bytes.seek(0)
+            metadata = pickle.load(metadata_bytes)
+            
+            logger.info(f"Metadata loaded from: gs://{self.bucket_name}/{blob_path}")
+            return metadata
 
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
