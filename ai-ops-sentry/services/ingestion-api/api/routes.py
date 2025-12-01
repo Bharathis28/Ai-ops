@@ -36,13 +36,20 @@ def get_metrics_writer():
     """Lazy initialization of BigQuery metrics writer."""
     global _metrics_writer, _gcp_config
     if _metrics_writer is None:
-        # For now, return None (stub mode)
-        # TODO: Uncomment when ready for actual BigQuery integration
-        # if _gcp_config is None:
-        #     _gcp_config = load_gcp_config()
-        # from services.ingestion-api.infra.bq_writer import BigQueryMetricsWriter
-        # _metrics_writer = BigQueryMetricsWriter(config=_gcp_config)
-        pass
+        # Phase 8: Enable BigQuery integration
+        if _gcp_config is None:
+            _gcp_config = load_gcp_config()
+        
+        # Import dynamically to handle hyphenated directory
+        import importlib.util
+        from pathlib import Path
+        bq_writer_path = Path(__file__).parent.parent / "infra" / "bq_writer.py"
+        bq_writer_spec = importlib.util.spec_from_file_location("bq_writer", bq_writer_path)
+        bq_writer_module = importlib.util.module_from_spec(bq_writer_spec)
+        bq_writer_spec.loader.exec_module(bq_writer_module)
+        BigQueryMetricsWriter = bq_writer_module.BigQueryMetricsWriter
+        
+        _metrics_writer = BigQueryMetricsWriter(config=_gcp_config)
     return _metrics_writer
 
 
@@ -50,13 +57,20 @@ def get_logs_writer():
     """Lazy initialization of BigQuery logs writer."""
     global _logs_writer, _gcp_config
     if _logs_writer is None:
-        # For now, return None (stub mode)
-        # TODO: Uncomment when ready for actual BigQuery integration
-        # if _gcp_config is None:
-        #     _gcp_config = load_gcp_config()
-        # from services.ingestion-api.infra.bq_writer import BigQueryLogsWriter
-        # _logs_writer = BigQueryLogsWriter(config=_gcp_config)
-        pass
+        # Phase 8: Enable BigQuery integration
+        if _gcp_config is None:
+            _gcp_config = load_gcp_config()
+        
+        # Import dynamically to handle hyphenated directory
+        import importlib.util
+        from pathlib import Path
+        bq_writer_path = Path(__file__).parent.parent / "infra" / "bq_writer.py"
+        bq_writer_spec = importlib.util.spec_from_file_location("bq_writer", bq_writer_path)
+        bq_writer_module = importlib.util.module_from_spec(bq_writer_spec)
+        bq_writer_spec.loader.exec_module(bq_writer_module)
+        BigQueryLogsWriter = bq_writer_module.BigQueryLogsWriter
+        
+        _logs_writer = BigQueryLogsWriter(config=_gcp_config)
     return _logs_writer
 
 
@@ -85,22 +99,20 @@ def receive_metrics(request: MetricIngestRequest) -> MetricIngestResponse:
         metrics = request.metrics
         logger.info(f"Received a batch of {len(metrics)} metrics.")
 
-        # For now, just log the metrics (stub mode)
-        logger.info(f"Metrics written to BigQuery (stub): {len(metrics)} records")
-        
-        # TODO: Uncomment when ready for actual BigQuery integration
-        # metrics_writer = get_metrics_writer()
-        # if metrics_writer:
-        #     try:
-        #         metrics_writer.write_metrics(metrics)
-        #     except Exception as e:
-        #         logger.error(f"Failed to write metrics to BigQuery: {e}")
-        #         raise HTTPException(
-        #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #             detail="Failed to persist metrics",
-        #         )
-        # else:
-        #     logger.warning("BigQuery writer not initialized, skipping write")
+        # Phase 8: Enable BigQuery integration
+        metrics_writer = get_metrics_writer()
+        if metrics_writer:
+            try:
+                metrics_writer.write_metrics(metrics)
+                logger.info(f"Successfully wrote {len(metrics)} metrics to BigQuery")
+            except Exception as e:
+                logger.error(f"Failed to write metrics to BigQuery: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to persist metrics",
+                )
+        else:
+            logger.warning("BigQuery writer not initialized, skipping write")
 
         # TODO: Publish to Pub/Sub topic `metric_batches` for downstream processing
         # pubsub_publisher.publish(topic="metric_batches", data=metrics)
@@ -149,22 +161,20 @@ def receive_logs(request: LogIngestRequest) -> LogIngestResponse:
         logs = request.logs
         logger.info(f"Received a batch of {len(logs)} log entries.")
 
-        # For now, just log the entries (stub mode)
-        logger.info(f"Logs written to BigQuery (stub): {len(logs)} records")
-        
-        # TODO: Uncomment when ready for actual BigQuery integration
-        # logs_writer = get_logs_writer()
-        # if logs_writer:
-        #     try:
-        #         logs_writer.write_logs(logs)
-        #     except Exception as e:
-        #         logger.error(f"Failed to write logs to BigQuery: {e}")
-        #         raise HTTPException(
-        #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #             detail="Failed to persist logs",
-        #         )
-        # else:
-        #     logger.warning("BigQuery logs writer not initialized, skipping write")
+        # Phase 8: Enable BigQuery integration
+        logs_writer = get_logs_writer()
+        if logs_writer:
+            try:
+                logs_writer.write_logs(logs)
+                logger.info(f"Successfully wrote {len(logs)} logs to BigQuery")
+            except Exception as e:
+                logger.error(f"Failed to write logs to BigQuery: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to persist logs",
+                )
+        else:
+            logger.warning("BigQuery logs writer not initialized, skipping write")
 
         # TODO: Publish to Pub/Sub topic `log_entries` for downstream processing
         # pubsub_publisher.publish(topic="log_entries", data=logs)

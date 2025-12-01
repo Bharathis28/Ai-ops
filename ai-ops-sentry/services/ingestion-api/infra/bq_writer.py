@@ -32,9 +32,9 @@ class BigQueryMetricsWriter:
         self.table_id = config.get_full_table_id(config.bigquery_table_metrics_raw)
         logger.info(f"Initialized BigQueryMetricsWriter for table: {self.table_id}")
         
-        # TODO: Initialize BigQuery client when ready for actual integration
-        # from google.cloud import bigquery
-        # self.client = bigquery.Client(project=config.gcp_project_id)
+        # Phase 8: Initialize BigQuery client
+        from google.cloud import bigquery
+        self.client = bigquery.Client(project=config.gcp_project_id)
 
     def write_metrics(self, metrics: List[MetricPoint]) -> None:
         """Write a batch of metrics to BigQuery.
@@ -49,40 +49,39 @@ class BigQueryMetricsWriter:
             logger.warning("Attempted to write empty metrics list to BigQuery")
             return
 
-        # TODO: Implement actual BigQuery insertion
-        # Example implementation (to be added in infrastructure phase):
-        #
-        # rows_to_insert = [
-        #     {
-        #         "timestamp": metric.timestamp.isoformat(),
-        #         "service_name": metric.service_name,
-        #         "metric_name": metric.metric_name,
-        #         "value": metric.value,
-        #         "tags": json.dumps(metric.tags),
-        #     }
-        #     for metric in metrics
-        # ]
-        #
-        # errors = self.client.insert_rows_json(self.table_id, rows_to_insert)
-        # if errors:
-        #     logger.error(f"BigQuery insert errors: {errors}")
-        #     raise Exception(f"Failed to insert metrics: {errors}")
+        # Phase 8: Implement actual BigQuery insertion
+        import json
         
-        # For now, just log the operation
+        rows_to_insert = [
+            {
+                "timestamp": metric.timestamp.isoformat(),
+                "service_name": metric.service_name,
+                "metric_name": metric.metric_name,
+                "value": metric.value,
+                "tags": json.dumps(metric.tags) if metric.tags else "{}",
+            }
+            for metric in metrics
+        ]
+        
+        errors = self.client.insert_rows_json(self.table_id, rows_to_insert)
+        if errors:
+            logger.error(f"BigQuery insert errors: {errors}")
+            raise Exception(f"Failed to insert metrics: {errors}")
+        
         logger.info(
-            f"[STUB] Would write {len(metrics)} metrics to BigQuery table {self.table_id}"
+            f"Successfully wrote {len(metrics)} metrics to BigQuery table {self.table_id}"
         )
-        logger.debug(f"[STUB] Sample metric: {metrics[0].model_dump_json()}")
+        logger.debug(f"Sample metric: {metrics[0].model_dump_json()}")
 
     def close(self) -> None:
         """Close the BigQuery client connection.
         
         This method is a placeholder for future cleanup operations.
         """
-        # TODO: Close BigQuery client when implemented
-        # if hasattr(self, 'client'):
-        #     self.client.close()
-        pass
+        # Phase 8: Close BigQuery client
+        if hasattr(self, 'client'):
+            self.client.close()
+            logger.info("BigQuery client closed")
 
 
 class BigQueryLogsWriter:
@@ -103,9 +102,9 @@ class BigQueryLogsWriter:
         self.table_id = config.get_full_table_id(config.bigquery_table_logs_clean)
         logger.info(f"Initialized BigQueryLogsWriter for table: {self.table_id}")
         
-        # TODO: Initialize BigQuery client when ready for actual integration
-        # from google.cloud import bigquery
-        # self.client = bigquery.Client(project=config.gcp_project_id)
+        # Phase 8: Initialize BigQuery client
+        from google.cloud import bigquery
+        self.client = bigquery.Client(project=config.gcp_project_id)
 
     def write_logs(self, logs: List[LogEntry]) -> None:
         """Write a batch of log entries to BigQuery.
@@ -120,18 +119,36 @@ class BigQueryLogsWriter:
             logger.warning("Attempted to write empty logs list to BigQuery")
             return
 
-        # TODO: Implement actual BigQuery insertion (similar to metrics writer)
+        # Phase 8: Implement actual BigQuery insertion
+        import json
         
-        # For now, just log the operation
+        rows_to_insert = [
+            {
+                "timestamp": log.timestamp.isoformat(),
+                "service_name": log.service_name,
+                "level": log.level,
+                "message": log.message,
+                "metadata": json.dumps(log.metadata) if log.metadata else "{}",
+            }
+            for log in logs
+        ]
+        
+        errors = self.client.insert_rows_json(self.table_id, rows_to_insert)
+        if errors:
+            logger.error(f"BigQuery insert errors: {errors}")
+            raise Exception(f"Failed to insert logs: {errors}")
+        
         logger.info(
-            f"[STUB] Would write {len(logs)} log entries to BigQuery table {self.table_id}"
+            f"Successfully wrote {len(logs)} log entries to BigQuery table {self.table_id}"
         )
-        logger.debug(f"[STUB] Sample log: {logs[0].model_dump_json()}")
+        logger.debug(f"Sample log: {logs[0].model_dump_json()}")
 
     def close(self) -> None:
         """Close the BigQuery client connection.
         
         This method is a placeholder for future cleanup operations.
         """
-        # TODO: Close BigQuery client when implemented
-        pass
+        # Phase 8: Close BigQuery client
+        if hasattr(self, 'client'):
+            self.client.close()
+            logger.info("BigQuery logs client closed")
