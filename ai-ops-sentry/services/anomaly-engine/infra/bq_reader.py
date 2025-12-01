@@ -58,58 +58,83 @@ def load_historical_metrics(
 
     logger.info(f"Loading {days} days of metrics for service: {service_name}")
 
-    # TODO: Replace with actual BigQuery query when ready
-    # Example implementation:
-    #
-    # from google.cloud import bigquery
-    # from libs.core.config import load_gcp_config
-    #
-    # config = load_gcp_config()
-    # client = bigquery.Client(project=config.gcp_project_id)
-    #
-    # if end_date is None:
-    #     end_date = datetime.now(timezone.utc)
-    # start_date = end_date - timedelta(days=days)
-    #
-    # query = f"""
-    # SELECT
-    #     timestamp,
-    #     service_name,
-    #     cpu_usage,
-    #     memory_usage,
-    #     latency_p95,
-    #     request_rate,
-    #     error_rate
-    # FROM `{config.get_full_table_id(config.bigquery_table_metrics_raw)}`
-    # WHERE service_name = @service_name
-    #   AND timestamp >= @start_date
-    #   AND timestamp < @end_date
-    # ORDER BY timestamp ASC
-    # """
-    #
-    # job_config = bigquery.QueryJobConfig(
-    #     query_parameters=[
-    #         bigquery.ScalarQueryParameter("service_name", "STRING", service_name),
-    #         bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", start_date),
-    #         bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", end_date),
-    #     ]
-    # )
-    #
-    # df = client.query(query, job_config=job_config).to_dataframe()
-    # logger.info(f"Loaded {len(df)} rows from BigQuery")
-    # return df
+    # BigQuery implementation
+    from google.cloud import bigquery
+    from libs.core.config import load_gcp_config
 
-    # STUB IMPLEMENTATION: Generate dummy data
-    logger.warning(
-        "[STUB] Using dummy data instead of BigQuery. "
-        "Replace implementation when BigQuery is available."
+    config = load_gcp_config()
+    
+    # Check if GCP clients are enabled
+    if not config.enable_gcp_clients:
+        logger.warning(
+            "[STUB] GCP clients disabled. Using dummy data instead of BigQuery."
+        )
+        df = _generate_dummy_metrics(service_name, days, end_date)
+        logger.info(f"Generated {len(df)} rows of dummy metrics for {service_name}")
+        return df
+    
+    client = bigquery.Client(project=config.gcp_project_id)
+
+    if end_date is None:
+        end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+
+    # Query to fetch metrics from BigQuery
+    # Note: The table has metric_name column, need to pivot or aggregate
+    query = f"""
+    SELECT
+        timestamp,
+        service_name,
+        metric_name,
+        value
+    FROM `{config.get_full_table_id(config.bigquery_table_metrics_raw)}`
+    WHERE service_name = @service_name
+      AND timestamp >= @start_date
+      AND timestamp < @end_date
+    ORDER BY timestamp ASC
+    """
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("service_name", "STRING", service_name),
+            bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", start_date),
+            bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", end_date),
+        ]
     )
 
-    df = _generate_dummy_metrics(service_name, days, end_date)
-
-    logger.info(f"Generated {len(df)} rows of dummy metrics for {service_name}")
-
-    return df
+    try:
+        query_job = client.query(query, job_config=job_config)
+        df_raw = query_job.to_dataframe()
+        logger.info(f"Loaded {len(df_raw)} rows from BigQuery")
+        
+        if df_raw.empty:
+            logger.warning(f"No metrics found in BigQuery for {service_name}. Using dummy data.")
+            df = _generate_dummy_metrics(service_name, days, end_date)
+            return df
+        
+        # Pivot the data: rows are timestamps, columns are metric_name values
+        df = df_raw.pivot_table(
+            index=['timestamp', 'service_name'],
+            columns='metric_name',
+            values='value',
+            aggfunc='mean'  # Average if multiple values at same timestamp
+        ).reset_index()
+        
+        # Ensure required columns exist (fill with 0 if missing)
+        required_metrics = ['cpu_usage', 'memory_usage', 'latency_p95', 'request_rate', 'error_rate']
+        for metric in required_metrics:
+            if metric not in df.columns:
+                df[metric] = 0.0
+                logger.warning(f"Missing metric {metric}, filled with 0.0")
+        
+        logger.info(f"Processed {len(df)} metric rows from BigQuery")
+        return df
+        
+    except Exception as e:
+        logger.error(f"Failed to load metrics from BigQuery: {e}")
+        logger.warning("Falling back to dummy data")
+        df = _generate_dummy_metrics(service_name, days, end_date)
+        return df
 
 
 def _generate_dummy_metrics(
