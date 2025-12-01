@@ -6,7 +6,7 @@ with a stable interface for easy BigQuery integration later.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pandas as pd

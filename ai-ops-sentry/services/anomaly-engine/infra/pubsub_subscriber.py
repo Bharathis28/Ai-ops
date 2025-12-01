@@ -101,9 +101,13 @@ class MetricsBatchSubscriber:
             f"threshold={score_threshold}"
         )
 
-        # TODO: Initialize Pub/Sub subscriber when ready
-        # from google.cloud import pubsub_v1
-        # self.subscriber = pubsub_v1.SubscriberClient()
+        # Initialize Pub/Sub subscriber
+        if config.enable_gcp_clients:
+            from google.cloud import pubsub_v1
+            self.subscriber = pubsub_v1.SubscriberClient()
+        else:
+            self.subscriber = None
+            logger.warning("GCP clients disabled, Pub/Sub subscription will not start")
 
     def _get_model(self, service_name: str) -> Optional[BaseEstimator]:
         """Get model for a service, using cache if available.
@@ -288,36 +292,47 @@ class MetricsBatchSubscriber:
         """
         logger.info(f"Starting subscriber for: {self.subscription_path}")
 
-        # TODO: Implement actual Pub/Sub subscription
-        # Example implementation:
-        #
-        # from google.cloud import pubsub_v1
-        # from concurrent.futures import TimeoutError
-        #
-        # flow_control = pubsub_v1.types.FlowControl(
-        #     max_messages=self.max_workers,
-        # )
-        #
-        # streaming_pull_future = self.subscriber.subscribe(
-        #     self.subscription_path,
-        #     callback=self._message_callback,
-        #     flow_control=flow_control,
-        # )
-        #
-        # logger.info(f"Listening for messages on {self.subscription_path}")
-        #
-        # try:
-        #     streaming_pull_future.result()
-        # except TimeoutError:
-        #     streaming_pull_future.cancel()
-        #     streaming_pull_future.result()
-        # except KeyboardInterrupt:
-        #     logger.info("Received shutdown signal")
-        #     streaming_pull_future.cancel()
-        # except Exception as e:
-        #     logger.error(f"Subscriber error: {e}", exc_info=True)
-        #     streaming_pull_future.cancel()
-        #     raise
+        if self.subscriber is None:
+            logger.warning("[STUB] GCP clients disabled, subscriber not started")
+            logger.info("Subscriber would listen for messages and process metric batches")
+            # Run stub mode - just log
+            logger.info("Running in stub mode - no actual subscription")
+            try:
+                while True:
+                    time.sleep(60)
+                    logger.debug("[STUB] Subscriber idle, waiting for messages...")
+            except KeyboardInterrupt:
+                logger.info("Received shutdown signal")
+            return
+
+        # Actual Pub/Sub subscription
+        from google.cloud import pubsub_v1
+        from concurrent.futures import TimeoutError
+
+        flow_control = pubsub_v1.types.FlowControl(
+            max_messages=self.max_workers,
+        )
+
+        streaming_pull_future = self.subscriber.subscribe(
+            self.subscription_path,
+            callback=self._message_callback,
+            flow_control=flow_control,
+        )
+
+        logger.info(f"Listening for messages on {self.subscription_path}")
+
+        try:
+            streaming_pull_future.result()
+        except TimeoutError:
+            streaming_pull_future.cancel()
+            streaming_pull_future.result()
+        except KeyboardInterrupt:
+            logger.info("Received shutdown signal")
+            streaming_pull_future.cancel()
+        except Exception as e:
+            logger.error(f"Subscriber error: {e}", exc_info=True)
+            streaming_pull_future.cancel()
+            raise
 
         # STUB: Simulate receiving messages
         logger.info("[STUB] Subscriber started (stub mode - no actual Pub/Sub connection)")

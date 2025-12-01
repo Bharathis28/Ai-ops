@@ -46,10 +46,7 @@ class ModelStore:
         if backend == "local":
             self._init_local_storage()
         elif backend == "gcs":
-            # TODO: Implement GCS storage
-            raise NotImplementedError(
-                "GCS backend not yet implemented. Use backend='local' for now."
-            )
+            self._init_gcs_storage()
         else:
             raise ValueError(f"Unknown backend: {backend}. Must be 'local' or 'gcs'.")
 
@@ -60,6 +57,22 @@ class ModelStore:
         # Create base directory if it doesn't exist
         Path(self.base_path).mkdir(parents=True, exist_ok=True)
         logger.debug(f"Local storage initialized at: {self.base_path}")
+
+    def _init_gcs_storage(self) -> None:
+        """Initialize Google Cloud Storage."""
+        from google.cloud import storage
+        
+        # Parse bucket name from gs:// URL or use directly
+        if self.base_path.startswith("gs://"):
+            self.bucket_name = self.base_path.replace("gs://", "").split("/")[0]
+            self.gcs_prefix = "/".join(self.base_path.replace("gs://", "").split("/")[1:])
+        else:
+            self.bucket_name = self.base_path
+            self.gcs_prefix = "models"
+        
+        self.gcs_client = storage.Client()
+        self.gcs_bucket = self.gcs_client.bucket(self.bucket_name)
+        logger.debug(f"GCS storage initialized: bucket={self.bucket_name}, prefix={self.gcs_prefix}")
 
     def save_model(
         self,
@@ -162,31 +175,38 @@ class ModelStore:
         metadata: Optional[dict],
         version: str,
     ) -> str:
-        """Save model to Google Cloud Storage.
-
-        TODO: Implement this when GCS integration is ready.
-
-        Example implementation:
-        ```python
-        from google.cloud import storage
+        """Save model to Google Cloud Storage."""
         import io
-
+        
         # Serialize model to bytes
-        model_bytes = pickle.dumps(model)
-
+        model_bytes = io.BytesIO()
+        pickle.dump(model, model_bytes)
+        model_bytes.seek(0)
+        
         # Upload to GCS
-        bucket_name = self.base_path.replace("gs://", "").split("/")[0]
-        blob_path = f"models/{service_name}/model.pkl"
-
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(blob_path)
-        blob.upload_from_string(model_bytes)
-
-        return f"gs://{bucket_name}/{blob_path}"
-        ```
-        """
-        raise NotImplementedError("GCS backend not yet implemented")
+        blob_path = f"{self.gcs_prefix}/{service_name}/model.pkl"
+        blob = self.gcs_bucket.blob(blob_path)
+        blob.upload_from_file(model_bytes, content_type="application/octet-stream")
+        logger.info(f"Model uploaded to: gs://{self.bucket_name}/{blob_path}")
+        
+        # Save metadata if provided
+        if metadata is not None:
+            metadata_bytes = io.BytesIO()
+            pickle.dump(metadata, metadata_bytes)
+            metadata_bytes.seek(0)
+            
+            metadata_blob_path = f"{self.gcs_prefix}/{service_name}/metadata.pkl"
+            metadata_blob = self.gcs_bucket.blob(metadata_blob_path)
+            metadata_blob.upload_from_file(metadata_bytes, content_type="application/octet-stream")
+            logger.info(f"Metadata uploaded to: gs://{self.bucket_name}/{metadata_blob_path}")
+        
+        # Save version info
+        version_blob_path = f"{self.gcs_prefix}/{service_name}/version.txt"
+        version_blob = self.gcs_bucket.blob(version_blob_path)
+        version_blob.upload_from_string(version, content_type="text/plain")
+        logger.debug(f"Version uploaded to: gs://{self.bucket_name}/{version_blob_path}")
+        
+        return f"gs://{self.bucket_name}/{blob_path}"
 
     def load_model(self, service_name: str) -> BaseEstimator:
         """Load a trained model.
@@ -231,7 +251,23 @@ class ModelStore:
 
     def _load_model_gcs(self, service_name: str) -> BaseEstimator:
         """Load model from Google Cloud Storage."""
-        raise NotImplementedError("GCS backend not yet implemented")
+        import io
+        
+        blob_path = f"{self.gcs_prefix}/{service_name}/model.pkl"
+        blob = self.gcs_bucket.blob(blob_path)
+        
+        if not blob.exists():
+            raise FileNotFoundError(
+                f"Model not found for service: {service_name} at gs://{self.bucket_name}/{blob_path}"
+            )
+        
+        model_bytes = io.BytesIO()
+        blob.download_to_file(model_bytes)
+        model_bytes.seek(0)
+        model = pickle.load(model_bytes)
+        
+        logger.info(f"Model loaded from: gs://{self.bucket_name}/{blob_path}")
+        return model
 
     def load_metadata(self, service_name: str) -> Optional[dict]:
         """Load model metadata.
@@ -274,6 +310,8 @@ class ModelStore:
             model_path = Path(self.base_path) / service_name / "model.pkl"
             return model_path.exists()
         elif self.backend == "gcs":
-            raise NotImplementedError("GCS backend not yet implemented")
+            blob_path = f"{self.gcs_prefix}/{service_name}/model.pkl"
+            blob = self.gcs_bucket.blob(blob_path)
+            return blob.exists()
         else:
             raise ValueError(f"Unknown backend: {self.backend}")

@@ -56,9 +56,14 @@ class ActionsLogger:
             self.table_id = config.get_full_table_id(config.bigquery_table_actions)
             logger.info(f"Initialized ActionsLogger with BigQuery backend: {self.table_id}")
             
-            # TODO: Initialize BigQuery client when ready
-            # from google.cloud import bigquery
-            # self.client = bigquery.Client(project=config.gcp_project_id)
+            # Initialize BigQuery client
+            try:
+                from google.cloud import bigquery
+                self.client = bigquery.Client(project=config.gcp_project_id)
+                logger.info(f"BigQuery client initialized for project: {config.gcp_project_id}")
+            except Exception as e:
+                logger.error(f"Failed to initialize BigQuery client: {e}")
+                raise
         else:
             logger.info("Initialized ActionsLogger with console backend")
 
@@ -118,26 +123,36 @@ class ActionsLogger:
         Raises:
             Exception: If BigQuery insertion fails.
         """
-        logger.info(
-            f"[STUB] Would write action to BigQuery table {self.table_id}: "
-            f"{action.action_id}"
-        )
-        
-        # TODO: Implement actual BigQuery insertion
-        # Example implementation:
-        #
-        # row_to_insert = action.to_dict()
-        # 
-        # errors = self.client.insert_rows_json(
-        #     self.table_id,
-        #     [row_to_insert]
-        # )
-        # 
-        # if errors:
-        #     logger.error(f"BigQuery insert errors: {errors}")
-        #     raise Exception(f"Failed to insert action: {errors}")
-        # 
-        # logger.info(f"Action {action.action_id} logged to BigQuery")
+        try:
+            # Map ActionRecord fields to BigQuery schema
+            # BigQuery schema: action_id, timestamp, service_name, action_type, 
+            #                  target_type, reason, status, triggered_by, result
+            row_to_insert = {
+                "action_id": action.action_id,
+                "timestamp": action.timestamp.isoformat(),
+                "service_name": action.service_name,
+                "action_type": action.action_type.value,
+                "target_type": action.target_type.value,
+                "reason": action.reason or "No reason provided",
+                "status": action.status.value,
+                "triggered_by": action.metadata.get("triggered_by", "anomaly_engine"),
+                "result": action.message,  # Map message to result field
+            }
+            
+            errors = self.client.insert_rows_json(
+                self.table_id,
+                [row_to_insert]
+            )
+            
+            if errors:
+                logger.error(f"BigQuery insert errors: {errors}")
+                raise Exception(f"Failed to insert action {action.action_id}: {errors}")
+            
+            logger.info(f"Action {action.action_id} logged to BigQuery successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to log action to BigQuery: {e}")
+            raise
         
         # Also log to console for visibility
         self._log_to_console(action)
@@ -154,36 +169,40 @@ class ActionsLogger:
             limit: Maximum number of actions to retrieve.
             
         Returns:
-            List of action records.
+            List of action records as dictionaries.
         """
-        logger.info(
-            f"[STUB] Would retrieve {limit} recent actions for service: {service_name}"
-        )
+        if self.backend != "bigquery":
+            logger.warning("get_actions_by_service only works with BigQuery backend")
+            return []
         
-        # TODO: Implement actual BigQuery query
-        # Example implementation:
-        #
-        # query = f"""
-        #     SELECT *
-        #     FROM `{self.table_id}`
-        #     WHERE service_name = @service_name
-        #     ORDER BY timestamp DESC
-        #     LIMIT @limit
-        # """
-        # 
-        # job_config = bigquery.QueryJobConfig(
-        #     query_parameters=[
-        #         bigquery.ScalarQueryParameter("service_name", "STRING", service_name),
-        #         bigquery.ScalarQueryParameter("limit", "INT64", limit),
-        #     ]
-        # )
-        # 
-        # query_job = self.client.query(query, job_config=job_config)
-        # results = query_job.result()
-        # 
-        # return [dict(row) for row in results]
-        
-        return []
+        try:
+            from google.cloud import bigquery
+            
+            query = f"""
+                SELECT *
+                FROM `{self.table_id}`
+                WHERE service_name = @service_name
+                ORDER BY timestamp DESC
+                LIMIT @limit
+            """
+            
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("service_name", "STRING", service_name),
+                    bigquery.ScalarQueryParameter("limit", "INT64", limit),
+                ]
+            )
+            
+            query_job = self.client.query(query, job_config=job_config)
+            results = query_job.result()
+            
+            actions = [dict(row) for row in results]
+            logger.info(f"Retrieved {len(actions)} actions for service {service_name}")
+            return actions
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve actions by service: {e}")
+            return []
 
     def get_failed_actions(
         self,
@@ -197,38 +216,41 @@ class ActionsLogger:
             limit: Maximum number of actions to retrieve.
             
         Returns:
-            List of failed action records.
+            List of failed action records as dictionaries.
         """
-        logger.info(
-            f"[STUB] Would retrieve failed actions from last {hours} hours"
-        )
+        if self.backend != "bigquery":
+            logger.warning("get_failed_actions only works with BigQuery backend")
+            return []
         
-        # TODO: Implement actual BigQuery query
-        # Example implementation:
-        #
-        # from datetime import timedelta
-        # 
-        # lookback_time = datetime.utcnow() - timedelta(hours=hours)
-        # 
-        # query = f"""
-        #     SELECT *
-        #     FROM `{self.table_id}`
-        #     WHERE status = 'failed'
-        #       AND timestamp >= @lookback_time
-        #     ORDER BY timestamp DESC
-        #     LIMIT @limit
-        # """
-        # 
-        # job_config = bigquery.QueryJobConfig(
-        #     query_parameters=[
-        #         bigquery.ScalarQueryParameter("lookback_time", "TIMESTAMP", lookback_time),
-        #         bigquery.ScalarQueryParameter("limit", "INT64", limit),
-        #     ]
-        # )
-        # 
-        # query_job = self.client.query(query, job_config=job_config)
-        # results = query_job.result()
-        # 
-        # return [dict(row) for row in results]
-        
-        return []
+        try:
+            from datetime import timedelta
+            from google.cloud import bigquery
+            
+            lookback_time = datetime.utcnow() - timedelta(hours=hours)
+            
+            query = f"""
+                SELECT *
+                FROM `{self.table_id}`
+                WHERE status = 'failed'
+                  AND timestamp >= @lookback_time
+                ORDER BY timestamp DESC
+                LIMIT @limit
+            """
+            
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("lookback_time", "TIMESTAMP", lookback_time),
+                    bigquery.ScalarQueryParameter("limit", "INT64", limit),
+                ]
+            )
+            
+            query_job = self.client.query(query, job_config=job_config)
+            results = query_job.result()
+            
+            failed_actions = [dict(row) for row in results]
+            logger.info(f"Retrieved {len(failed_actions)} failed actions from last {hours} hours")
+            return failed_actions
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve failed actions: {e}")
+            return []

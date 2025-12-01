@@ -64,9 +64,13 @@ class BigQueryAnomalyWriter(AnomalyWriter):
         self.table_id = config.get_full_table_id(config.bigquery_table_anomalies)
         logger.info(f"Initialized BigQueryAnomalyWriter for table: {self.table_id}")
 
-        # TODO: Initialize BigQuery client when ready for actual integration
-        # from google.cloud import bigquery
-        # self.client = bigquery.Client(project=config.gcp_project_id)
+        # Initialize BigQuery client
+        if config.enable_gcp_clients:
+            from google.cloud import bigquery
+            self.client = bigquery.Client(project=config.gcp_project_id)
+        else:
+            self.client = None
+            logger.warning("GCP clients disabled, BigQuery writes will be skipped")
 
     def write_anomalies(self, anomalies: List[AnomalyResult]) -> None:
         """Write anomalies to BigQuery.
@@ -81,38 +85,44 @@ class BigQueryAnomalyWriter(AnomalyWriter):
             logger.warning("Attempted to write empty anomalies list")
             return
 
-        # TODO: Implement actual BigQuery insertion
-        # Example implementation:
-        #
-        # rows_to_insert = [
-        #     {
-        #         "timestamp": anomaly.timestamp.isoformat(),
-        #         "service_name": anomaly.service_name,
-        #         "metric_name": anomaly.metric_name,
-        #         "value": anomaly.value,
-        #         "is_anomaly": anomaly.is_anomaly,
-        #         "anomaly_score": anomaly.anomaly_score,
-        #         "severity": anomaly.severity,
-        #         "metadata": json.dumps(anomaly.metadata),
-        #     }
-        #     for anomaly in anomalies
-        # ]
-        #
-        # errors = self.client.insert_rows_json(self.table_id, rows_to_insert)
-        # if errors:
-        #     logger.error(f"BigQuery insert errors: {errors}")
-        #     raise Exception(f"Failed to insert anomalies: {errors}")
+        if self.client is None:
+            logger.info(f"[STUB] GCP clients disabled. Would write {len(anomalies)} anomalies to BigQuery")
+            for anomaly in anomalies:
+                logger.debug(
+                    f"[STUB] Anomaly: {anomaly.service_name}/{anomaly.metric_name} = {anomaly.value} "
+                    f"(severity: {anomaly.severity}, score: {anomaly.anomaly_score:.4f})"
+                )
+            return
 
-        # STUB: Log anomalies instead
-        logger.info(f"[STUB] Would write {len(anomalies)} anomalies to BigQuery table {self.table_id}")
-
+        # Actual BigQuery insertion
+        import json
+        
+        rows_to_insert = []
         for anomaly in anomalies:
-            logger.info(
-                f"[STUB] Anomaly: {anomaly.service_name}/{anomaly.metric_name} = {anomaly.value} "
-                f"(severity: {anomaly.severity}, score: {anomaly.anomaly_score:.4f})"
-            )
+            # Map AnomalyResult fields to BigQuery schema
+            row = {
+                "timestamp": anomaly.timestamp.isoformat(),
+                "service_name": anomaly.service_name,
+                "metric_name": anomaly.metric_name,
+                "anomaly_score": anomaly.anomaly_score,
+                "expected_value": anomaly.metadata.get("expected_value", 0.0),
+                "actual_value": anomaly.value,
+                "severity": anomaly.severity,
+                "description": f"Anomaly detected: {anomaly.metric_name} = {anomaly.value:.2f} (score: {anomaly.anomaly_score:.4f})",
+            }
+            rows_to_insert.append(row)
 
-        logger.debug(f"[STUB] Sample anomaly: {anomalies[0].to_dict()}")
+        try:
+            errors = self.client.insert_rows_json(self.table_id, rows_to_insert)
+            if errors:
+                logger.error(f"BigQuery insert errors: {errors}")
+                raise Exception(f"Failed to insert anomalies: {errors}")
+            
+            logger.info(f"Successfully wrote {len(anomalies)} anomalies to BigQuery table {self.table_id}")
+            logger.debug(f"Sample anomaly: {anomalies[0].to_dict()}")
+        except Exception as e:
+            logger.error(f"Failed to write anomalies to BigQuery: {e}")
+            raise
 
 
 class LocalFileAnomalyWriter(AnomalyWriter):
